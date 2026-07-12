@@ -1,0 +1,1 @@
+Simple program for reading input .pcap-file (.pcapng is not supported yet), incrementing selected MAC/IPv4/IPv6 octets and writing changed data to output file. Broadcast/Multicast/Zero-addresses is not incremented.

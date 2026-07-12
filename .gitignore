@@ -1,0 +1,12 @@
+# Rust
+/target
+
+# Project
+/samples
+*.pcap
+*.pcapng
+
+# VS Code settings
+.vscode/
+!.vscode/extensions.json
+*.code-workspace

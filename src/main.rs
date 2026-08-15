@@ -11,22 +11,22 @@ use std::fs::File;
 #[derive(Parser, Debug)]
 #[command(version, about = "Simple program for reading input .pcap-file (.pcapng is not supported yet), incrementing selected MAC/IPv4/IPv6 octets and writing changed data to output file. Broadcast/Multicast/Zero-addresses is not incremented.", long_about = None)]
 struct Args {
-    #[arg(long)]
+    #[arg(long, short)]
     in_file: String,
 
-    #[arg(long)]
+    #[arg(long, short)]
     out_file: String,
 
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
-    /// MAC-address octet number for incrementing. Numbering starts from 0)
+    #[arg(long, short='m', value_parser = clap::value_parser!(u8).range(1..=6), default_value="5")]
+    /// MAC-address octet number for incrementing. Numbering starts from 1
     mac_octet_number: u8,
 
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=3))]
-    /// IPv4-address octet number for incrementing. Numbering starts from 0)
+    #[arg(long, short='4', value_parser = clap::value_parser!(u8).range(1..=4), default_value="3")]
+    /// IPv4-address octet number for incrementing. Numbering starts from 1
     ipv4_octet_number: u8,
 
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=15))]
-    /// IPv6-address octet number for incrementing. Numbering starts from 0)
+    #[arg(long, short='6', value_parser = clap::value_parser!(u8).range(1..=16), default_value="9")]
+    /// IPv6-address octet number for incrementing. Numbering starts from 1
     ipv6_octet_number: u8,
 }
 
@@ -65,7 +65,10 @@ impl OctetIncrement for Ipv6Addr {
 }
 
 fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
+    args.mac_octet_number -= 1;
+    args.ipv4_octet_number -= 1;
+    args.ipv6_octet_number -= 1;
     let file_in = File::open(args.in_file).expect("Error opening file");
     let file_out = File::create(args.out_file).expect("Error creating file");
     let mut pcap_reader = PcapReader::new(file_in).unwrap();

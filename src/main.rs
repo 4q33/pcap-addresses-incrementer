@@ -1,5 +1,6 @@
 use clap::Parser;
 use core::net::{Ipv4Addr, Ipv6Addr};
+use core::panic;
 use pcap_file::pcap::{PcapPacket, PcapReader, PcapWriter};
 use pnet::packet::ethernet::{EtherTypes, MutableEthernetPacket};
 use pnet::packet::ipv4::MutableIpv4Packet;
@@ -9,7 +10,7 @@ use pnet::util::MacAddr;
 use std::fs::File;
 
 #[derive(Parser, Debug)]
-#[command(version, about = "Simple program for reading input .pcap-file (.pcapng is not supported yet), incrementing selected MAC/IPv4/IPv6 octets and writing changed data to output file. Broadcast/Multicast/Zero-addresses is not incremented.", long_about = None)]
+#[command(version, about = "Simple program for reading input .pcap-file (.pcapng is not supported yet), incrementing selected MAC/IPv4/IPv6 octets and writing changed data to output file. Broadcast/Multicast/Zero-addresses is not incremented. If incrementing octet is overflowed previous octet increments too", long_about = None)]
 struct Args {
     #[arg(long, short)]
     in_file: String,
@@ -36,22 +37,42 @@ trait OctetIncrement {
 
 impl OctetIncrement for MacAddr {
     fn octet_increment(&mut self, octet_number: u8) {
-        match octet_number {
-            0 => self.0 = self.0.wrapping_add(1),
-            1 => self.1 = self.1.wrapping_add(1),
-            2 => self.2 = self.2.wrapping_add(1),
-            3 => self.3 = self.3.wrapping_add(1),
-            4 => self.4 = self.4.wrapping_add(1),
-            5 => self.5 = self.5.wrapping_add(1),
-            _ => panic!(),
+        let mut octets = self.octets();
+        
+        fn octet_increment_local(mut octets:[u8;6], octet_number: usize) -> [u8;6] {
+            octets[octet_number] = octets[octet_number].wrapping_add(1);
+            if octets[octet_number] == 0 {
+                if octet_number == 0 {panic!("Unable to increment MAC-address octet number less than 1")} //TODO proper error handling
+                octets = octet_increment_local(octets, octet_number-1)
+            }
+            octets
         }
+
+        octets = octet_increment_local(octets, octet_number as usize);
+
+        *self = MacAddr::from(octets)
     }
 }
 
 impl OctetIncrement for Ipv4Addr {
     fn octet_increment(&mut self, octet_number: u8) {
         let mut octets = self.octets();
-        octets[octet_number as usize] = octets[octet_number as usize].wrapping_add(1);
+
+        fn octet_increment_local(mut octets: [u8; 4], octet_number: usize) -> [u8;4] {
+            octets[octet_number] = octets[octet_number].wrapping_add(1);
+            if octet_number == 3 {
+                if octets[octet_number] == 0 {octets[octet_number] = 1};
+                if octets[octet_number] == 255 {octets[octet_number] = 1};
+            }
+            if (octet_number <=2 && octets[octet_number] == 0) || (octet_number == 3 && octets[octet_number] == 1) {
+                if octet_number == 0 {panic!("Unable to increment IPv4-address octet number less than 1")} //TODO proper error handling
+                octets = octet_increment_local(octets, octet_number-1)
+            }
+            octets
+        }
+
+        octets = octet_increment_local(octets, octet_number as usize);
+        
         *self = Ipv4Addr::from_octets(octets);
     }
 }
